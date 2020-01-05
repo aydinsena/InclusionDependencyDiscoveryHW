@@ -1,6 +1,4 @@
 package de.hu.sena_homework
-import SparkJob.spark.implicits._
-
 
 object Main extends SparkJob {
 
@@ -13,15 +11,14 @@ object Main extends SparkJob {
     result
   }
 
-
   def main(args: Array[String]): Unit = {
 
     val inputs = List("region", "nation", "supplier", "customer", "part", "lineitem", "orders").map(name => s"data/TPCH/tpch_$name.csv")
 
-
     time {
-
-      Sindy.discoverINDs(inputs, spark)}
-
+      Sindy.discoverINDs(inputs, spark)
     }
+
+  }
+
 }

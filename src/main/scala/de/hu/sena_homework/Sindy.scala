@@ -1,31 +1,24 @@
 package de.hu.sena_homework
 
-import org.apache.spark
 import SparkJob.spark.implicits._
-import org.apache.spark.sql
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 
 object Sindy extends SparkJob {
 
   def discoverINDs(inputs: List[String], spark: SparkSession): Unit = {
 
-    val dataFrames: List[DataFrame] = inputs.map(f => {
+    val dataFrames: List[DataFrame] = inputs.map(path => {
       spark.read
         .format("csv")
         .option("header", "true") //first line in file has headers
         .option("delimiter", ";")
-        .load(f)
-    }
-    )
+        .load(path)
+    })
 
-    val cells: Dataset[Cells] = dataFrames
-      .map(dataFrameToCells)
-      .reduce(_.unionAll(_))
-
-    val attributeSet = cellsToAttributeSet(cells)
-    val inclusionLists = toInclusionLists(attributeSet)
-    val inclusionDependencies = finalAggregate(inclusionLists)
-
+    val inclusionDependencies = finalAggregate(
+      toInclusionLists(
+        cellsToAttributeSet(dataFrames.map(
+          dataFrameToCells).reduce(_.unionAll(_)))))
 
     val printINDs = inclusionDependencies.collect()
       .map(x => {
@@ -35,13 +28,12 @@ object Sindy extends SparkJob {
     println("RESULT: " + "\n" + printINDs)
   }
 
-
   def dataFrameToCells(df: DataFrame): Dataset[Cells] = {
-    val columnNames = df.columns.map(Set(_))
+    val columnNames = df.columns.map(c => Set(c))
     df.rdd.flatMap(row => {
       row
         .toSeq
-        .map(_.toString)
+        .map(row => row.toString) // if not specified RDD[Any]
         .zip(columnNames) // merge with column names
         .map { case (attributeValues, attributeNames) =>
           Cells(attributeValues, attributeNames)

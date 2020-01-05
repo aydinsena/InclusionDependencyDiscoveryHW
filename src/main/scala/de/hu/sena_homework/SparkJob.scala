@@ -1,6 +1,5 @@
 package de.hu.sena_homework
 
-import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
 
 //reduce the number of imports for import spark.implicits._
