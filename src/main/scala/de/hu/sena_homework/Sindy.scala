@@ -1,11 +1,14 @@
 package de.hu.sena_homework
 
-import SparkJob.spark.implicits._
-import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
+import org.apache.spark.sql.{DataFrame, Dataset}
 
-object Sindy extends SparkJob {
+case class Cell(attributeValues : String, attributeNames:  Set[String])
 
-  def discoverINDs(inputs: List[String], spark: SparkSession): Unit = {
+class Sindy(override val master: String = "local", override val numCPUs: Int = 4) extends SparkJob with Serializable {
+
+  import spark.implicits._
+
+  def discoverINDs(inputs: List[String]): Unit = {
 
     val dataFrames: List[DataFrame] = inputs.map(path => {
       spark.read
@@ -28,38 +31,37 @@ object Sindy extends SparkJob {
     println("RESULT: " + "\n" + printINDs)
   }
 
-  def dataFrameToCells(df: DataFrame): Dataset[Cells] = {
-    val columnNames = df.columns.map(c => Set(c))
+  def dataFrameToCells(df: DataFrame): Dataset[Cell] = {
+    val columnNames = df.columns
     df.rdd.flatMap(row => {
       row
         .toSeq
-        .map(row => row.toString) // if not specified RDD[Any]
         .zip(columnNames) // merge with column names
         .map { case (attributeValues, attributeNames) =>
-          Cells(attributeValues, attributeNames)
+          Cell(attributeValues.toString, Set(attributeNames))
         }
     }).toDS
   }
 
-  def cellsToAttributeSet(cells: Dataset[Cells]): Dataset[Set[String]] = {
+  def cellsToAttributeSet(cells: Dataset[Cell]): Dataset[Set[String]] = {
     cells.groupByKey(_.attributeValues).mapGroups((_, iter) => {
       iter.map(_.attributeNames).reduce(_.union(_))
     })
   }
 
-  def toInclusionLists(attributeSet: Dataset[Set[String]]): Dataset[Cells] = {
+  def toInclusionLists(attributeSet: Dataset[Set[String]]): Dataset[Cell] = {
     attributeSet.flatMap(x => {
       x.map(y => {
-        Cells(y, x.filterNot(_.equals(y)))
+        Cell(y, x.filterNot(_.equals(y)))
       })
     })
   }
 
-  def finalAggregate(inclusionLists: Dataset[Cells]): Dataset[Cells] = {
+  def finalAggregate(inclusionLists: Dataset[Cell]): Dataset[Cell] = {
     inclusionLists
       .groupByKey(_.attributeValues)
       .mapGroups((k, v) => {
-        Cells(k, v.map(_.attributeNames).reduce(_.intersect(_)))
+        Cell(k, v.map(_.attributeNames).reduce(_.intersect(_)))
       })
       .filter(x => x.attributeNames.nonEmpty)
   }

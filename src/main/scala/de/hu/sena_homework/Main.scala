@@ -1,6 +1,12 @@
 package de.hu.sena_homework
 
-object Main extends SparkJob {
+import java.io.File
+
+import com.beust.jcommander.Parameter
+import com.beust.jcommander.JCommander
+
+
+object Main {
 
   def time[R](block: => R): R = {
     val t0 = System.nanoTime()
@@ -11,14 +17,35 @@ object Main extends SparkJob {
     result
   }
 
-  def main(args: Array[String]): Unit = {
+  def getListOfFiles(dir: String):List[String] = {
+    val d = new File(dir)
+    if (d.exists && d.isDirectory) {
+      d.listFiles.filter(_.isFile).toList.map(_.getAbsolutePath)
+    } else {
+      List()
+    }
+  }
 
-    val inputs = List("region", "nation", "supplier", "customer", "part", "lineitem", "orders").map(name => s"data/TPCH/tpch_$name.csv")
+  class Args {
+    @Parameter(names = Array("--cores"), description = "Number of cores")
+    var cores: Int = 4
+    @Parameter(names = Array("--path"), description = "Path containing csv files")
+    var path: String = "TPCH"
+    @Parameter(names = Array("--master"))
+    var master: String = "local"
+  }
+
+  def main(args: Array[String]): Unit = {
+    val jcArgs = new Args()
+    val jc = new JCommander()
+    jc.addObject(jcArgs)
+    jc.parse(args: _*)
+
+    val inputs = getListOfFiles(jcArgs.path)
 
     time {
-      Sindy.discoverINDs(inputs, spark)
+      new Sindy(jcArgs.master, jcArgs.cores).discoverINDs(inputs)
     }
-
   }
 
 }
